@@ -29,8 +29,11 @@
 # CMake build directories
 /build/
 /out/
+CMakeSettings.json
+CMakeUserPresets.json
 
 # IDEs and Editors
+.vs/
 .vscode/
 .idea/
 *.swp
