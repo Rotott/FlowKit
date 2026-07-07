@@ -1,144 +1,112 @@
 ﻿# Architecture
 
-**Note this file is just a placeholder for file structure, and needs an upd with the correct info.**
-
-[← Back to README](../README.md)
-
 ## Overview
 
-Brief description of the overall architecture and the main design goals.
-
-Eg:
-
-FlowKit is designed around a modular architecture where workflow definition, graph management, scheduling, and execution are separated into independent components. The goal is to keep the framework extensible and maintainable while ensuring that workflow execution remains independent from the tasks being executed.
+FlowKit uses a modular architecture that separates workflow definition from workflow execution. The execution engine is currently single-threaded, while the design preserves the structural guarantees necessary to support a future multi-threaded execution model with minimal architectural changes.
 
 ---
 
-## High-Level Architecture
-
-Add an overview diagram here.
-
-Eg:
+## High-Level Component Design
 
 ```mermaid
 flowchart TD
-    A[Client Application] --> B[Workflow API]
-    B --> C[Workflow Graph]
-    C --> D[Scheduler]
-    D --> E[Executor]
-    E --> F[Workflow Nodes]
-    E --> G[Execution Context]
+    A[Client Application] -->|Defines Tasks & Edges| B[WorkflowGraph]
+    B -->|Passed to| C[Executor]
+    C -->|1. Validates & Sorts| C[Executor]
+    C -->|2. Runs Sequentially| D[Task Nodes]
 ```
-# Core Components
-
-## Workflow
-
-### Responsibility
-
-Provides the public API used by clients to construct workflows and define dependencies between tasks.
-
-### Responsibilities
-
-- Create and configure workflows
-- Register workflow nodes
-- Define dependencies between nodes
-- Provide access to workflow execution
 
 ---
 
-## WorkflowGraph
+## Core Components
 
-### Responsibility
+### 1. WorkflowGraph
 
-Manages the internal representation of workflow nodes and their relationships.
+**Responsibility**
 
-### Responsibilities
+- Represents the workflow as a Directed Acyclic Graph (DAG).
+- Stores task nodes.
+- Maintains directed dependency edges between tasks.
 
-- Store workflow nodes
-- Maintain dependency relationships
-- Validate graph structure
-- Detect cycles
-- Support graph traversal
+**Validation**
 
----
+Before execution, the graph validates its structure by performing cycle detection using either:
+**(TBD:)**
+- Depth-First Search (DFS)
+- Kahn's Algorithm
+- (Or other)
 
-## Scheduler
-
-### Responsibility
-
-Determines the order in which workflow nodes should execute.
-
-### Responsibilities
-
-- Identify executable nodes
-- Resolve dependencies
-- Produce a valid execution order
+    Execution is only allowed if the graph is a valid DAG.
 
 ---
 
-## Executor
+### 2. Task (Interface)
 
-### Responsibility
+**Responsibility**
 
-Coordinates the execution of workflows.
+Defines the behavioral contract for executable work units.
 
-### Responsibilities
+**Characteristics**
 
-- Execute nodes according to the schedule
-- Manage execution flow
-- Provide runtime context
+- Exposes a single execution method:
 
----
+```c++
+execute()
+```
 
-## Context
-
-### Responsibility
-
-Provides shared runtime data between workflow nodes.
-
-### Responsibilities
-
-- Store execution data
-- Allow nodes to exchange information
-- Maintain workflow state
+- Completely independent from graph mechanics.
+- Tasks have no knowledge of neighboring nodes.
+- Easily extensible for custom task implementations.
 
 ---
 
-# Design Principles
+### 3. Executor
 
-The architecture is guided by the following principles:
+**Responsibility**
 
-- **Separation of concerns**  
-  Each component has a clearly defined responsibility.
+Coordinates the complete workflow lifecycle.
 
-- **Single Responsibility Principle (SRP)**  
-  Components should have one reason to change.
+**Execution Steps**
 
-- **Composition over inheritance**  
-  Prefer assembling functionality through composition where appropriate.
+1. Accepts a validated `WorkflowGraph`.
+2. Performs topological sorting.
+3. Executes tasks sequentially.
+4. Tracks execution state.
+5. Reports execution failures when encountered.
 
-- **Dependency Inversion Principle (DIP)**  
-  High-level components should depend on abstractions rather than concrete implementations.
-
-- **Testability**  
-  Components should be designed to support isolated testing.
-
-- **Extensibility**  
-  The architecture should allow new functionality to be added without modifying existing core components.
+The executor owns execution logic while the graph remains a pure structural model.
 
 ---
 
-# Design Patterns
+## Design Patterns
 
-The following design patterns naturally emerge from the architecture:
+| Pattern | Usage | Benefit |
+|----------|-------|---------|
+| Command | Task abstraction | Encapsulates executable actions behind a consistent interface without exposing framework internals. |
+| Builder / Fluent API | Workflow construction | Provides a readable and expressive API for defining workflows and linking task dependencies. |
 
-| Pattern | Usage |
-|---|---|
-| Command | Workflow nodes represent executable tasks |
-| Builder | Workflow construction API |
-| Strategy | Scheduling algorithms and execution policies |
-| Observer | Workflow lifecycle events |
-| Dependency Injection | Shared services and runtime dependencies |
+---
 
+## Architectural Decision: Shared Context
+
+The framework intentionally excludes a global, untyped shared context.
+
+### Rationale
+
+Global mutable state introduces several long-term issues:
+
+- Weakens DAG guarantees.
+- Couples otherwise independent tasks.
+- Creates data-race risks when introducing parallel execution.
+- Makes workflows harder to reason about and test.
+
+### Preferred Approach
+
+Data should flow explicitly through:
+
+- Type-safe task inputs and outputs.
+- Localized token or message passing between tasks.
+
+This approach keeps task dependencies explicit, improves maintainability, and allows the execution engine to evolve toward safe concurrent execution without redesigning the core architecture.
 
 [← Back to README](../README.md)
