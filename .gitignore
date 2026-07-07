@@ -1,0 +1,54 @@
+# Prerequisites
+*.d
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Libraries
+*.la
+*.a
+*.lib
+*.ln
+*.dll
+*.so
+*.so.*
+*.dylib
+
+# Executables
+*.exe
+*.out
+*.app
+
+# CMake build directories
+/build/
+/out/
+CMakeSettings.json
+CMakeUserPresets.json
+
+# IDEs and Editors
+.vs/
+.vscode/
+.idea/
+*.swp
+*.swo
+.clang-format
+
+# Debug symbols
+*.pdb
+*.dSYM/
+
+# Environment / secrets
+.env
+
+# Logs & temp files
+*.log
+*.tmp
+*.temp
+*.cache
