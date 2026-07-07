@@ -1,4 +1,7 @@
 # FlowKit
+![CI Status](https://github.com/Rotott/FlowKit/actions/workflows/ci.yml/badge.svg)
+![C++20](https://img.shields.io/badge/C%2B%2B-20-blue)
+![CMake](https://img.shields.io/badge/CMake-3.20%2B-brightgreen)
 
 A modern, low-overhead C++20 workflow engine for building dependency-driven task pipelines. 
 
@@ -28,7 +31,7 @@ For a deep dive into design choices, see the links below:
 ## Tech Stack
 - **Language:** C++20
 - **Build System:** CMake
-- **Testing:** GoogleTest
+- **Testing:** GoogleTest 
 - **Documentation Diagrams:** Mermaid
 
 ---
