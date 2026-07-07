@@ -12,8 +12,8 @@ FlowKit uses a modular architecture that separates workflow definition from work
 flowchart TD
     A[Client Application] -->|Defines Tasks & Edges| B[WorkflowGraph]
     B -->|Passed to| C[Executor]
-    C -->|1. Validates & Sorts| C[Executor]
-    C -->|2. Runs Sequentially| D[Task Nodes]
+    C -->|Step 1: Validate & Sort| C
+    C -->|Step 2: Run Sequentially| D[Task Nodes]
 ```
 
 ---
@@ -76,6 +76,54 @@ Coordinates the complete workflow lifecycle.
 
 The executor owns execution logic while the graph remains a pure structural model.
 
+---
+
+## System Execution Flow
+
+The following sequence diagram outlines the entire lifecycle of a workflow—from initialization by the client application to structural graph validation, topological sorting, and sequential task execution.
+
+### High-Level Flow
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Client as User / Client Application
+    participant Graph as WorkflowGraph
+    participant Exec as Executor
+    participant Task as Task Nodes
+
+    Client->>Graph: 1. Define tasks & edges
+    Client->>Exec: 2. Invoke run(graph)
+
+    activate Exec
+    Exec->>Graph: 3. Perform structural validation
+
+    alt Graph contains a cycle
+        Graph-->>Exec: Validation failed
+        Exec-->>Client: Return validation error
+
+    else Graph is a valid DAG
+        Graph-->>Exec: Validation passed
+
+        Exec->>Exec: 4. Perform topological sort
+
+        loop For each sorted task
+            Exec->>Task: 5. execute()
+            activate Task
+            Task-->>Exec: 6. Success/Failure
+            deactivate Task
+
+            alt Task failed
+                Exec->>Exec: Halt execution
+                Exec-->>Client: Return failure state
+            end
+        end
+
+        Exec-->>Client: 7. Return success state
+    end
+
+    deactivate Exec
+   
+   ```
 ---
 
 ## Design Patterns
