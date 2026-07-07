@@ -1,4 +1,4 @@
-name: FlowKit CI, tests 
+﻿name: FlowKit CI, tests
 
 on:
   push:
@@ -6,10 +6,13 @@ on:
   pull_request:
     branches: [ main, master ]
 
-jobs:
-  build-and-test:
-    runs-on: ubuntu-latest
+# Give the workflow permission to write badge data back to repository
+permissions:
+  contents: write
 
+jobs:
+  run-tests:
+    runs-on: ubuntu-latest
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
@@ -19,14 +22,68 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y cmake g++-11
 
-    - name: Configure CMake
-      run: |
-        cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=g++-11
+    - name: Configure CMake (Release)
+      run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=g++-11
 
     - name: Build project
-      run: cmake --build build --config Release
+      run: cmake --build build 
 
-    - name: Run tests suite
+    - name: Run test suite
       run: |
         cd build
         ctest --output-on-failure
+
+  generate-coverage:
+    runs-on: ubuntu-latest
+    needs: run-tests
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Install dependencies & Gcovr
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y cmake g++-11 gcovr jq
+
+    - name: Configure CMake (Debug + Coverage)
+      run: cmake -B build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_COMPILER=g++-11
+
+    - name: Build project
+      run: cmake --build build
+
+    - name: Run suite to generate coverage data files
+      run: |
+        cd build
+        ctest --output-on-failure
+
+    # 1. Output the detailed branch coverage table to the "Job summary"-page (excluding build files)
+    - name: Generate local branch coverage report
+      run: |
+        echo "## 📊 Branch coverage summary" >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`text" >> $GITHUB_STEP_SUMMARY
+        gcovr -r . --branches -e "build/.*" >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+
+    # 2. Extract just the total branch percentage integer (excluding build files)
+    - name: Extract coverage percentage
+      id: extract_cov
+      run: |
+        PERCENT=$(gcovr -r . --branches -e "build/.*" --json | jq '.metrics.branches.covered_percent | round')
+        echo "percentage=$PERCENT" >> $GITHUB_OUTPUT
+
+    # 3. Create a badge and save it into a hidden branch called 'badges'
+    - name: Generate coverage badge
+      uses: schneegans/dynamic-badges-action@v1.7.0
+      with:
+        auth: ${{ secrets.GITHUB_TOKEN }}
+        gistID: '' # Leave blank to use a repo branch instead
+        repo: FlowKit
+        user: ${{ github.repository_owner }}
+        branch: badges # The badge file will be committed here automatically
+        filename: branch-coverage.json
+        label: branch coverage
+        message: ${{ steps.extract_cov.outputs.percentage }}%
+        valColorRange: ${{ steps.extract_cov.outputs.percentage }}
+        maxColorRange: 100
+        minColorRange: 0

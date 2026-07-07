@@ -1,8 +1,8 @@
 # FlowKit
 ![CI Status](https://github.com/Rotott/FlowKit/actions/workflows/ci.yml/badge.svg)
-![C++20](https://img.shields.io/badge/C%2B%2B-20-blue)
+![C++20](https://img.shields.io/badge/C%2B%2B-20-brightgreen)
 ![CMake](https://img.shields.io/badge/CMake-3.20%2B-brightgreen)
-
+![Branch Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/Rotott/FlowKit/badges/branch-coverage.json)
 A modern, low-overhead C++20 workflow engine for building dependency-driven task pipelines. 
 
 FlowKit provides a clean framework for defining tasks and connecting them into a Directed Acyclic Graph (DAG). The framework automatically handles dependency validation, cycle detection, and topological execution ordering, keeping orchestration completely separate from individual task logic.
