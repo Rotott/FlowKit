@@ -27,36 +27,29 @@ flowchart TD
 - Represents the workflow as a Directed Acyclic Graph (DAG).
 - Stores task nodes.
 - Maintains directed dependency edges between tasks.
+- Exposes a public validation interface (e.g., `bool validate()`) that verifies the graph's structural correctness before execution.
 
 **Validation**
 
-Before execution, the graph validates its structure by performing cycle detection using either:
-**(TBD:)**
-- Depth-First Search (DFS)
-- Kahn's Algorithm
-- (Or other)
-
-    Execution is only allowed if the graph is a valid DAG.
+`WorkflowGraph` performs cycle detection using **Kahn's Algorithm**. Execution is only permitted when validation succeeds, guaranteeing that the graph is a valid DAG.
 
 ---
 
-### 2. Task (Interface)
+### 2. Task
 
 **Responsibility**
 
 Defines the behavioral contract for executable work units.
 
+Rather than requiring inheritance from a common base class, FlowKit accepts any task type that satisfies the required execution interface. This can be enforced through a C++20 Concept (or equivalent template constraint) requiring an `execute()` member function or callable operator.
+
 **Characteristics**
 
-- Exposes a single execution method:
-
-```c++
-execute()
-```
-
+- Provides executable behavior through an `execute()` method or callable operator.
 - Completely independent from graph mechanics.
 - Tasks have no knowledge of neighboring nodes.
-- Easily extensible for custom task implementations.
+- Supports compile-time polymorphism through templates rather than runtime inheritance.
+- Easily extensible for custom task implementations without requiring a framework-specific base class.
 
 ---
 
@@ -68,21 +61,28 @@ Coordinates the complete workflow lifecycle.
 
 **Execution Steps**
 
-1. Accepts a validated `WorkflowGraph`.
-2. Performs topological sorting.
-3. Executes tasks sequentially.
-4. Tracks execution state.
-5. Reports execution failures when encountered.
+1. Accepts a `WorkflowGraph`.
+2. Invokes the graph's public validation method (e.g., `graph.validate()`).
+3. Performs topological sorting.
+4. Executes tasks sequentially.
+5. Tracks execution state.
+6. Reports execution failures when encountered.
 
-The executor owns execution logic while the graph remains a pure structural model.
+**Additional Responsibilities**
+
+- Acts as the execution orchestrator responsible for localized token or data routing between otherwise independent task nodes.
+- Performs any required mapping of task outputs to downstream task inputs while preserving task decoupling and explicit dependency relationships.
+
+The executor owns execution logic while the graph remains a pure structural model responsible for maintaining and validating workflow topology.
 
 ---
 
 ## System Execution Flow
 
-The following sequence diagram outlines the entire lifecycle of a workflow—from initialization by the client application to structural graph validation, topological sorting, and sequential task execution.
+The following sequence diagram outlines the complete workflow lifecycle—from workflow construction by the client application through graph self-validation, topological sorting, and sequential task execution. The executor preserves encapsulation by invoking the graph's public validation interface and acting solely on the returned validation result.
 
 ### High-Level Flow
+
 ```mermaid
 sequenceDiagram
     autonumber
@@ -95,7 +95,7 @@ sequenceDiagram
     Client->>Exec: 2. Invoke run(graph)
 
     activate Exec
-    Exec->>Graph: 3. Perform structural validation
+    Exec->>Graph: 3. Invoke graph.validate()
 
     alt Graph contains a cycle
         Graph-->>Exec: Validation failed
@@ -122,8 +122,8 @@ sequenceDiagram
     end
 
     deactivate Exec
-   
-   ```
+```
+
 ---
 
 ## Design Patterns
