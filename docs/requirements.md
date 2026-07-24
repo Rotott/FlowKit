@@ -35,26 +35,24 @@ Before reviewing the specifications, use this table to cross-reference the requi
 ## 1. Functional requirements
 
 ### 1.1 Workflow definition & graph management
-- [ ] **REQ-GRAPH-001:** The framework shall provide a programmatic API allowing users to define tasks as nodes and construct them into a Directed Acyclic Graph (DAG).
-- [ ] **REQ-GRAPH-002:** The framework shall track and store explicit directional dependency edges between discrete task nodes.
-- [ ] **REQ-GRAPH-003:** The framework shall validate the graph structure prior to execution using a single-pass implementation of **Kahn's algorithm**, rejecting any graph containing circular dependencies while simultaneously producing a valid topological execution order.
-- [ ] **REQ-GRAPH-004:** The framework shall allow/validate disconnected subgraphs, ensuring isolated nodes are still scheduled during topological sort execution.
-- [ ] **REQ-GRAPH-005:** The graph shall gracefully deduplicate duplicate directional edges between the same task pair
-    - [ ] **REQ-GRAPH-005.1** The graph shall reject self-referencing edges (A -> A) during graph construction.
-- [ ] **REQ-GRAPH-006:** Executing an empty graph shall either safely return a no-op success status or throw a invalid state error.
-- [ ] **REQ-GRAPH-007:** The framework shall assign or accept a unique identifier (e.g., `TaskId` or `NodeId`) for each task node registered in the graph to uniquely specify dependency edges during graph construction.
+- [ ] **REQ-GRAPH-001:** The framework shall provide a programmatic builder API to construct a Directed Acyclic Graph (DAG) of task nodes.
+- [ ] **REQ-GRAPH-002:** The framework shall track directional dependency edges between unique task nodes (`A -> B` where A runs before B).
+- [ ] **REQ-GRAPH-003:** The framework shall validate the graph using **Kahn's algorithm**, throwing an `InvalidGraphException` if a cycle is detected, or producing a valid topological ordering on success.
+- [ ] **REQ-GRAPH-004:** Disconnected subgraphs and isolated nodes shall be validated and included in the final topological execution order.
+- [ ] **REQ-GRAPH-005:** Adding a duplicate directional edge between two already connected nodes shall act as a no-op without duplicating edge records.
+    - [ ] **REQ-GRAPH-005.1:** Adding a self-referencing edge (`A -> A`) shall throw an `InvalidGraphException`.
+- [ ] **REQ-GRAPH-006:** Executing an empty graph shall return a `Success` state with an executed task count of 0.
+- [ ] **REQ-GRAPH-007:** Each task node registered in the graph shall be assigned or provided a unique `TaskId`.
 
 ### 1.2 Workflow execution
-- [ ] **REQ-EXEC-001:** The framework shall use **Kahn's algorithm** to compute a valid topological execution order for all task nodes prior to workflow execution.
-- [ ] **REQ-EXEC-002:** The executor shall enforce dependency order, ensuring no task node runs until all of its prerequisite dependency nodes have successfully completed.
-- [ ] **REQ-EXEC-003:** The execution engine shall provide explicit runtime state feedback (e.g., Success or Failure) upon completion or halting of the workflow.
-    - [ ] **REQ-EXEC-003.1:** The execution result payload shall return detailed summary data, including overall status (Success/Failure), total executed task count, failed task identifier (if any), and skipped task identifiers.
-- [ ] **REQ-EXEC-004:** In the event of a task execution failure, the execution engine shall immediately halt the workflow and report a Failure state.
-    - [ ] **REQ-EXEC-004.1:** Upon task failure, downstream tasks depending on the failed task must be explicitly marked as SKIPPED rather than left in an undefined pending state.
-- [ ] **REQ-EXEC-005:** The execution engine shall execute tasks sequentially within a single thread of execution while remaining architecturally extensible for future parallel execution of independent nodes.
-- [ ] **REQ-EXEC-006:** The executor shall support optional observer callbacks (or listener interfaces) for task state events (e.g., onTaskStart, onTaskSuccess, onTaskFailure).
-- [ ] **REQ-EXEC-007:** The framework shall explicitly support reset mechanisms (or enforce single-use execution guarantees per graph instance) ensuring state from a prior run does not contaminate subsequent executions.
-
+- [ ] **REQ-EXEC-001:** The executor shall execute tasks strictly according to the topological ordering generated during graph validation.
+- [ ] **REQ-EXEC-002:** Downstream tasks shall not begin execution until all prerequisite upstream tasks report `Success`.
+- [ ] **REQ-EXEC-003:** Workflow execution shall return an `ExecutionResult` struct containing overall status (`Success`/`Failure`), total executed count, failed task ID (if failed), and a list of skipped task IDs.
+- [ ] **REQ-EXEC-004:** On task failure, execution shall immediately halt without attempting remaining independent branches.
+    - [ ] **REQ-EXEC-004.1:** All unexecuted tasks dependent on a failed task shall be marked as `SKIPPED` in the `ExecutionResult`.
+- [ ] **REQ-EXEC-005:** Tasks shall execute sequentially on the calling thread.
+- [ ] **REQ-EXEC-006:** The executor shall accept task lifecycle listeners with callbacks for `onTaskStart`, `onTaskSuccess`, and `onTaskFailure`.
+- [ ] **REQ-EXEC-007:** Executing a workflow shall reset internal node runtime states, allowing the same graph instance to be re-executed cleanly.
 ### 1.3 Task system
 - [ ] **REQ-TASK-001:** The framework shall expose a structural contract (C++20 Concepts and/or template constraints) defining the execution contract for custom user tasks.
 - [ ] **REQ-TASK-002:** Task-specific execution logic shall be strictly isolated, possessing no implicit knowledge of graph management, orchestration mechanics, or neighboring nodes.
@@ -65,7 +63,7 @@ Before reviewing the specifications, use this table to cross-reference the requi
 
 ### 1.4 Error handling & validation
 - [ ] **REQ-ERR-001:** The framework shall throw a custom exception (e.g., `InvalidGraphException`) or return a structured error status when a circular dependency is detected during graph validation.
-- [ ] **REQ-ERR-002:** The framework shall throw an exception or return a structured error status if a user attempts to add a dependency edge referencing a non-existent task node.
+- [ ] **REQ-ERR-002:** Attempting to add a dependency edge referencing a non-existent `TaskId` shall throw an `InvalidGraphException`.
 - [ ] **REQ-ERR-003:** The executor shall catch any uncaught exceptions thrown during task `execute()` calls, preventing process crashing, capturing the error message, and transitioning the task state to Failure.
 
 ### 1.5 Public API
@@ -78,7 +76,7 @@ Before reviewing the specifications, use this table to cross-reference the requi
 ## 2. Non-functional requirements
 
 ### 2.1 Technical constraints & performance
-- **REQ-PERF-001:** The framework shall minimize runtime overhead by leveraging compile-time polymorphism through C++20 templates and Concepts wherever appropriate, avoiding unnecessary virtual method dispatch (vtable lookups) and favoring efficient standard library facilities over heavyweight runtime design pattern abstractions.
+- **REQ-PERF-001:** The framework shall use C++20 Concepts to constrain user task types at registration time (`addTask<T>()`), while using type erasure (e.g., `std::function` or light interfaces) for heterogeneous graph node storage.
 - **REQ-PERF-002:** Graph validation and topological sorting shall complete in O(V + E) time, where V is the number of tasks and E is the number of dependency edges.
 - **REQ-LANG-001:** The codebase shall strictly target the C++20 language standard and use CMake as its build system.
 - **REQ-MEM-001:** The framework shall strictly adhere to RAII principles for resource management, ensuring no memory leaks occur during graph construction, validation, or execution.
